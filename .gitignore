@@ -47,6 +47,9 @@ docker-compose.override.yml
 kubeconfig
 *.kubeconfig
 .kube/
+# Local overrides for k8s manifests (with secrets, per-developer configs, etc.)
+src/kubernetes/*.local.yaml
+src/kubernetes/**/*.local.yaml
 
 # Environment variables
 .env
