@@ -50,6 +50,71 @@
    ```
 - Протестируйте постепенный переход, изменив переменную окружения MOVIES_MIGRATION_PERCENT в файле docker-compose.yml.
 
+#### Решение
+
+Сервис реализован на **TypeScript + Express + http-proxy-middleware**. Код разбит на модули:
+
+```
+src/microservices/proxy/src/
+├── index.ts    — точка входа, bootstrap
+├── config.ts   — загрузка env-переменных
+├── routes.ts   — маршрутизация + Strangler Fig
+└── types.ts    — интерфейсы
+```
+
+**Маршрутизация:**
+
+| Путь | Куда уходит |
+|---|---|
+| `GET /health` | отвечает сам прокси |
+| `/api/movies*` | **Strangler Fig** — с вероятностью `MOVIES_MIGRATION_PERCENT%` в `movies-service`, иначе в монолит |
+| `/api/events/*` | `events-service` |
+| `/api/users`, `/api/payments`, `/api/subscriptions` | монолит |
+
+При `MOVIES_MIGRATION_PERCENT=100` трафик полностью уходит в новый сервис, при `0` — в монолит, любое промежуточное значение даёт постепенный переход.
+
+**Проверка через API Gateway** — `curl http://localhost:8000/api/movies`:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "The Shawshank Redemption",
+    "description": "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+    "genres": ["Drama"],
+    "rating": 9.3
+  },
+  {
+    "id": 2,
+    "title": "The Godfather",
+    "description": "The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.",
+    "genres": ["Crime", "Drama"],
+    "rating": 9.2
+  },
+  {
+    "id": 3,
+    "title": "The Dark Knight",
+    "description": "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+    "genres": ["Action", "Crime", "Drama"],
+    "rating": 9.0
+  },
+  {
+    "id": 4,
+    "title": "Pulp Fiction",
+    "description": "The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+    "genres": ["Crime", "Drama"],
+    "rating": 8.9
+  },
+  {
+    "id": 5,
+    "title": "Forrest Gump",
+    "description": "The presidencies of Kennedy and Johnson, the Vietnam War, the Watergate scandal and other historical events unfold from the perspective of an Alabama man with an IQ of 75, whose only desire is to be reunited with his childhood sweetheart.",
+    "genres": ["Drama", "Romance"],
+    "rating": 8.8
+  }
+]
+```
+
 
 ### 2. Kafka
  Вам как архитектуру нужно также проверить гипотезу насколько просто реализовать применение Kafka в данной архитектуре.
@@ -62,6 +127,66 @@
 
 Необходимые тесты для проверки этого API вызываются при запуске npm run test:local из папки tests/postman 
 Приложите скриншот тестов и скриншот состояния топиков Kafka из UI http://localhost:8090 
+
+#### Решение
+
+MVP-сервис реализован на **TypeScript + Express + KafkaJS**. Код разбит на модули:
+
+```
+src/microservices/events/src/
+├── index.ts    — точка входа, старт producer и consumers
+├── config.ts   — загрузка env (PORT, KAFKA_BROKERS)
+├── kafka.ts    — producer, publishEvent, запуск consumer'ов
+├── routes.ts   — REST-эндпоинты
+└── types.ts    — интерфейсы событий, константы топиков
+```
+
+**API:**
+
+| Эндпоинт | Топик Kafka |
+|---|---|
+| `POST /api/events/movie` | `movie-events` |
+| `POST /api/events/user` | `user-events` |
+| `POST /api/events/payment` | `payment-events` |
+| `GET  /api/events/health` | health |
+
+**Producer + Consumer в одном сервисе:** при старте поднимается producer и три независимых consumer'а (каждый со своей группой `events-{type}-group`). При вызове API эндпоинт **публикует** событие в соответствующий топик, а consumer того же сервиса **читает** его и пишет в лог — этим проверяется сквозной цикл producer → Kafka → consumer.
+
+**Формат ответа** (по спецификации):
+
+```json
+{
+  "status": "success",
+  "partition": 0,
+  "offset": 3,
+  "event": {
+    "id": "movie-1-viewed",
+    "type": "movie",
+    "timestamp": "2026-04-13T17:51:54.123Z",
+    "payload": { "movie_id": 1, "title": "Inception", "action": "viewed", "user_id": 1 }
+  }
+}
+```
+
+**Пример логов сервиса** (producer → consumer):
+
+```
+[Producer][movie-events] partition=0 offset=0 event= {"id":"movie-1-viewed",...}
+[Consumer][movie-events] partition=0 offset=0 event= {"id":"movie-1-viewed",...}
+```
+
+
+### Результаты postman-тестов (`npm run test:local`)
+
+22 запроса, 42 ассерта — 0 ошибок.
+
+![Postman tests](./docs/screenshot-postman-tests.png)
+
+### Состояние топиков Kafka
+
+Все три топика созданы и содержат сообщения: `movie-events`, `user-events`, `payment-events`.
+
+![Kafka UI — Topics](docs/screenshot-kafka-ui-topics.png)
 
 # Задание 3
 
