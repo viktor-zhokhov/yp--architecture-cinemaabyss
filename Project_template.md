@@ -476,6 +476,8 @@ zookeeper-0                       1/1     Running
 
 **Postman-тесты** `npm run test:kubernetes` — **22 запроса, 42 ассерта, 0 ошибок** (хотя задание говорит что часть health-чеков упадёт — у нас всё зелёное, потому что ingress пропускает их через proxy-service, который их корректно маршрутизирует).
 
+![Postman tests — kubernetes env](./docs/screenshot-k8s-postman-tests.png)
+
 #### Шаг 3
 Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies и  скриншот вывода event-service после вызова тестов.
 
