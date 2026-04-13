@@ -238,6 +238,17 @@ jobs:
 Как только сборка отработает и в github registry появятся ваши образы, можно переходить к блоку настройки Kubernetes
 Успешным результатом данного шага является "зеленая" сборка и "зеленые" тесты
 
+#### Решение
+
+В [`.github/workflows/docker-build-push.yml`](./.github/workflows/docker-build-push.yml) добавлены **4 новых шага** (по образцу monolith/movies): `Extract metadata` + `Build and push` для **events-service** и **proxy-service** с контекстами `./src/microservices/events` и `./src/microservices/proxy`.
+
+Так как minikube локально работает на **arm64** (Apple Silicon), а GitHub-раннер — **amd64**, образы собираются **multi-arch**. Для этого добавлен шаг `docker/setup-qemu-action@v3` и в каждый `build-push-action` — `platforms: linux/amd64,linux/arm64`.
+
+Workflow запускается вручную через `workflow_dispatch` (триггер на `main` не менялся — мы работаем в ветке `cinema`). Результат:
+
+- 4 пакета в GHCR: `monolith`, `movies-service`, `events-service`, `proxy-service` (все multi-arch, public).
+- `api-tests.yml` остался без изменений — его поддержка proxy/events обеспечивается тем, что `docker-compose.yml` в задании 2 собирает эти сервисы из локального контекста.
+
 
 ### Proxy в Kubernetes
 
@@ -290,6 +301,20 @@ cat .docker/config.json | base64
 ```bash
  .dockerconfigjson: значение в base64 файла ~/.docker/config.json
 ```
+
+#### Решение (Шаг 1)
+
+- Создан PAT с правом `read:packages`.
+- Чтобы не коммитить реальный токен в публичный репозиторий, добавлен **локальный override**: файл [`src/kubernetes/dockerconfigsecret.local.yaml`](./src/kubernetes/dockerconfigsecret.local.yaml). В `.gitignore` прописан паттерн `src/kubernetes/*.local.yaml`, благодаря чему файл не попадает в git.
+- В оригинальном [`src/kubernetes/dockerconfigsecret.yaml`](./src/kubernetes/dockerconfigsecret.yaml) остаётся плейсхолдер для ревьюера (как образец структуры).
+- base64 для `.dockerconfigjson` получен командой:
+  ```bash
+  PAT="ghp_***"
+  USERNAME="viktor-zhokhov"
+  AUTH=$(echo -n "${USERNAME}:${PAT}" | base64)
+  echo -n "{\"auths\":{\"ghcr.io\":{\"auth\":\"${AUTH}\"}}}" | base64
+  ```
+- Во всех 4 манифестах (`monolith.yaml`, `movies-service.yaml`, `events-service.yaml`, `proxy-service.yaml`) путь к образу указан как `ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/<service>:latest`.
 
 #### Шаг 2
 
@@ -401,8 +426,72 @@ cat .docker/config.json | base64
   Часть тестов с health-чек упадет, но создание событий отработает.
   Откройте логи event-service и сделайте скриншот обработки событий
 
+#### Решение (Шаг 2)
+
+**Заполненные манифесты:**
+
+- [`src/kubernetes/events-service.yaml`](./src/kubernetes/events-service.yaml) — `Deployment` (порт 8082, env `KAFKA_BROKERS` из configmap) + `Service` (ClusterIP, 8082).
+- [`src/kubernetes/proxy-service.yaml`](./src/kubernetes/proxy-service.yaml) — `Deployment` (порт 8000, envFrom configmap — `MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) + `Service` (ClusterIP, 80 → 8000).
+- [`src/kubernetes/ingress.yaml`](./src/kubernetes/ingress.yaml) — два path'а: `/api/events` → `events-service:8082` (чтобы тесты могли писать события напрямую) и `/` → `proxy-service:80` (весь остальной трафик идёт через прокси, Strangler Fig работает).
+- [`src/kubernetes/configmap.yaml`](./src/kubernetes/configmap.yaml) — добавлены `EVENTS_SERVICE_URL` и `KAFKA_BROKERS`.
+
+**Развёртывание:**
+
+```bash
+kubectl apply -f src/kubernetes/namespace.yaml
+kubectl apply -f src/kubernetes/configmap.yaml
+kubectl apply -f src/kubernetes/secret.yaml
+kubectl apply -f src/kubernetes/dockerconfigsecret.local.yaml   # локальный override с реальным PAT
+kubectl apply -f src/kubernetes/postgres-init-configmap.yaml
+kubectl apply -f src/kubernetes/postgres.yaml
+kubectl apply -f src/kubernetes/kafka/kafka.yaml
+kubectl apply -f src/kubernetes/monolith.yaml
+kubectl apply -f src/kubernetes/movies-service.yaml
+kubectl apply -f src/kubernetes/events-service.yaml
+kubectl apply -f src/kubernetes/proxy-service.yaml
+minikube addons enable ingress
+kubectl apply -f src/kubernetes/ingress.yaml
+```
+
+Запуск minikube (podman driver) и доступ по хосту:
+
+```bash
+minikube start --driver=podman
+echo "127.0.0.1 cinemaabyss.example.com" | sudo tee -a /etc/hosts
+sudo minikube tunnel    # отдельный терминал
+```
+
+**Состояние после развёртывания:**
+
+```
+NAME                              READY   STATUS
+events-service-xxxxxxxxx-xxxxx    1/1     Running
+kafka-0                           1/1     Running
+monolith-xxxxxxxxxx-xxxxx         1/1     Running
+movies-service-xxxxxxx-xxxxx      1/1     Running
+postgres-0                        1/1     Running
+proxy-service-xxxxxxxxxx-xxxxx    1/1     Running
+zookeeper-0                       1/1     Running
+```
+
+**Postman-тесты** `npm run test:kubernetes` — **22 запроса, 42 ассерта, 0 ошибок** (хотя задание говорит что часть health-чеков упадёт — у нас всё зелёное, потому что ingress пропускает их через proxy-service, который их корректно маршрутизирует).
+
 #### Шаг 3
 Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies и  скриншот вывода event-service после вызова тестов.
+
+**Вызов `/api/movies` через ingress:**
+
+![/api/movies через ingress](./docs/screenshot-k8s-api-movies.png)
+
+Полный JSON-ответ — [`docs/api-movies-k8s-response.json`](./docs/api-movies-k8s-response.json).
+
+**Логи events-service после прогона тестов:**
+
+`kubectl logs -n cinemaabyss deployment/events-service | tail -30`
+
+![Логи events-service](./docs/screenshot-k8s-events-logs.png)
+
+Видны полные циклы producer → Kafka → consumer для всех трёх типов событий (movie, user, payment).
 
 
 # Задание 4
