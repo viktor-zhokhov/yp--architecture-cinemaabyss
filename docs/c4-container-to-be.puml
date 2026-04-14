@@ -1,0 +1,87 @@
+@startuml C4_CinemaAbyss_ToBe
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+title CinemaAbyss — Container Diagram (To-Be)
+
+' ===== Пользователь =====
+Person(user, "Пользователь", "Смотрит фильмы, управляет подпиской, оценивает контент")
+
+' ===== Система «Кинобездна» =====
+System_Boundary(cinemaabyss, "CinemaAbyss") {
+
+    ' --- Клиентские приложения ---да
+    Container(web, "Web Application", "Browser", "Веб-интерфейс кинотеатра")
+    Container(mobile, "Mobile App", "iOS / Android", "Мобильный интерфейс")
+    Container(tv, "Smart TV App", "TV App", "Приложение для телевизора")
+
+    ' --- Единая точка входа ---
+    Container(gateway, "API Gateway", "Go", "Единая точка входа.\nМаршрутизация, Strangler Fig, Feature Flags")
+
+    ' --- Микросервисы ---
+    Container(movies_svc, "Movies Service", "Go", "Метаданные фильмов, жанры, рейтинги")
+    Container(users_svc, "Users Service", "Go", "Регистрация, аутентификация, профили")
+    Container(payments_svc, "Payments Service", "Go", "Обработка платежей")
+    Container(subscriptions_svc, "Subscriptions Service", "Go", "Управление подписками и тарифами")
+    Container(content_svc, "Content Service", "Go", "Просмотры, избранное, стриминг")
+    Container(events_svc, "Events Service", "Go", "Обработка событий (producer/consumer)")
+
+    ' --- Хранилища ---
+    ContainerDb(movies_db, "Movies DB", "PostgreSQL", "Фильмы, жанры, оценки")
+    ContainerDb(users_db, "Users DB", "PostgreSQL", "Пользователи")
+    ContainerDb(payments_db, "Payments DB", "PostgreSQL", "Платежи, транзакции")
+    ContainerDb(subscriptions_db, "Subscriptions DB", "PostgreSQL", "Подписки")
+    ContainerDb(content_db, "Content DB", "PostgreSQL", "Просмотры, избранное")
+
+    ' --- Брокер сообщений ---
+    ContainerQueue(kafka, "Apache Kafka", "Broker", "Асинхронный обмен событиями")
+}
+
+' ===== Внешние системы =====
+System_Ext(payment_ext, "Платёжная система", "Внешний платёжный провайдер")
+System_Ext(recommend_ext, "Рекомендательная система", "Подбор контента для пользователя")
+System_Ext(cinemas_ext, "Онлайн-кинотеатры", "Внешние источники контента")
+System_Ext(s3_ext, "S3 Storage", "Хранилище видео и постеров")
+
+' ===== Связи =====
+
+' Пользователь -> клиенты
+Rel(user, web, "Использует", "HTTPS")
+Rel(user, mobile, "Использует", "HTTPS")
+Rel(user, tv, "Использует", "HTTPS")
+
+' Клиенты -> Gateway
+Rel(web, gateway, "API-запросы", "REST")
+Rel(mobile, gateway, "API-запросы", "REST")
+Rel(tv, gateway, "API-запросы", "REST")
+
+' Gateway -> сервисы (синхронно, REST)
+Rel(gateway, movies_svc, "Фильмы", "REST")
+Rel(gateway, users_svc, "Пользователи", "REST")
+Rel(gateway, payments_svc, "Платежи", "REST")
+Rel(gateway, subscriptions_svc, "Подписки", "REST")
+Rel(gateway, content_svc, "Контент", "REST")
+Rel(gateway, events_svc, "События", "REST")
+
+' Сервисы -> БД
+Rel(movies_svc, movies_db, "Читает/пишет")
+Rel(users_svc, users_db, "Читает/пишет")
+Rel(payments_svc, payments_db, "Читает/пишет")
+Rel(subscriptions_svc, subscriptions_db, "Читает/пишет")
+Rel(content_svc, content_db, "Читает/пишет")
+
+' Kafka (асинхронное взаимодействие через Events Service)
+Rel(events_svc, kafka, "Публикует/читает", "Kafka")
+Rel(movies_svc, kafka, "Публикует события", "Kafka")
+Rel(users_svc, kafka, "Публикует события", "Kafka")
+Rel(payments_svc, kafka, "Публикует события", "Kafka")
+
+' Внешние системы
+Rel(payments_svc, payment_ext, "Обработка платежей", "HTTPS")
+Rel(content_svc, cinemas_ext, "Получение контента", "API")
+Rel(content_svc, s3_ext, "Видео/постеры", "S3 API")
+Rel(kafka, recommend_ext, "События для рекомендаций", "Async")
+
+@enduml

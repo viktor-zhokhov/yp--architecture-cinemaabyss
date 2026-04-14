@@ -4,8 +4,10 @@ global:
   domain: cinemaabyss.example.com
 
 # Image pull secrets
+# Пакеты GHCR public — auth не требуется. Ниже валидный пустой docker config.
+# Для private пакетов передайте своё значение через -f values.local.yaml или --set.
 imagePullSecrets:
-  dockerconfigjson: ewoJImF1dGhzIjogewoJCSJnaGNyLmlvIjogewoJCQkiYXV0aCI6
+  dockerconfigjson: eyJhdXRocyI6e319
 # Database configuration
 database:
   host: postgres
@@ -33,7 +35,7 @@ database:
 monolith:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/monolith
+    repository: ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/monolith
     tag: latest
     pullPolicy: Always
   replicas: 1
@@ -53,7 +55,7 @@ monolith:
 proxyService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/proxy-service
+    repository: ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/proxy-service
     tag: latest
     pullPolicy: Always
   replicas: 1
@@ -73,7 +75,7 @@ proxyService:
 moviesService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/movies-service
+    repository: ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/movies-service
     tag: latest
     pullPolicy: Always
   replicas: 1
@@ -93,7 +95,7 @@ moviesService:
 eventsService:
   enabled: true
   image:
-    repository: ghcr.io/db-exp/cinemaabysstest/events-service
+    repository: ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/events-service
     tag: latest
     pullPolicy: Always
   replicas: 1
