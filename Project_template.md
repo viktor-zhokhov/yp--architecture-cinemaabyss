@@ -306,7 +306,7 @@ cat .docker/config.json | base64
 
 - Создан PAT с правом `read:packages`.
 - Чтобы не коммитить реальный токен в публичный репозиторий, добавлен **локальный override**: файл [`src/kubernetes/dockerconfigsecret.local.yaml`](./src/kubernetes/dockerconfigsecret.local.yaml). В `.gitignore` прописан паттерн `src/kubernetes/*.local.yaml`, благодаря чему файл не попадает в git.
-- В оригинальном [`src/kubernetes/dockerconfigsecret.yaml`](./src/kubernetes/dockerconfigsecret.yaml) остаётся плейсхолдер для ревьюера (как образец структуры).
+- В оригинальном [`src/kubernetes/dockerconfigsecret.yaml`](./src/kubernetes/dockerconfigsecret.yaml) остаётся плейсхолдер (как образец структуры).
 - base64 для `.dockerconfigjson` получен командой:
   ```bash
   PAT="ghp_***"
