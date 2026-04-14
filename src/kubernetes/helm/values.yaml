@@ -4,8 +4,10 @@ global:
   domain: cinemaabyss.example.com
 
 # Image pull secrets
+# Пакеты GHCR public — auth не требуется. Ниже валидный пустой docker config.
+# Для private пакетов передайте своё значение через -f values.local.yaml или --set.
 imagePullSecrets:
-  dockerconfigjson: ewoJImF1dGhzIjogewoJCSJnaGNyLmlvIjogewoJCQkiYXV0aCI6
+  dockerconfigjson: eyJhdXRocyI6e319
 # Database configuration
 database:
   host: postgres
