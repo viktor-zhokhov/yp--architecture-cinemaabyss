@@ -570,6 +570,44 @@ minikube tunnel
 https://cinemaabyss.example.com/api/movies
 и приложите скриншот развертывания helm и вывода https://cinemaabyss.example.com/api/movies
 
+#### Решение
+
+**1. `values.yaml`** — пути к образам обновлены на `ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/*` для всех 4 сервисов (monolith, movies, proxy, events). Значение `imagePullSecrets.dockerconfigjson` хранится в локальном override `values.local.yaml` (не в git, gitignored через `*.local.yaml`), передаётся при установке через `-f values.local.yaml`.
+
+**2. Шаблоны** [`templates/services/proxy-service.yaml`](./src/kubernetes/helm/templates/services/proxy-service.yaml) и [`templates/services/events-service.yaml`](./src/kubernetes/helm/templates/services/events-service.yaml) заполнены по образцу `monolith.yaml` / `movies-service.yaml`:
+
+- **proxy-service** — image из `{{ .Values.proxyService.image.* }}`, env-переменные для Strangler Fig (`MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) из values, health probe `/health`, Service 80 → 8000.
+- **events-service** — image из `{{ .Values.eventsService.image.* }}`, env `KAFKA_BROKERS`, envFrom configmap, health probe `/api/events/health`, Service 8082.
+
+**3. Установка и проверка:**
+
+```bash
+# Удалить текущий kubectl-namespace
+helm uninstall cinemaabyss -n cinemaabyss
+kubectl delete namespace cinemaabyss
+
+# Установить через Helm (с локальным override для секрета)
+helm install cinemaabyss ./src/kubernetes/helm \
+  -f ./src/kubernetes/helm/values.local.yaml \
+  --namespace cinemaabyss --create-namespace
+```
+
+**Результат `helm install`:**
+
+![helm install](./docs/screenshot-helm-install.png)
+
+**Состояние pod'ов после развёртывания** (`kubectl get pods -n cinemaabyss`):
+
+![kubectl get pods](./docs/screenshot-helm-pods.png)
+
+Все 7 pod'ов Running 1/1.
+
+**Вывод `curl http://cinemaabyss.example.com/api/movies`:**
+
+![/api/movies через helm](./docs/screenshot-helm-api-movies.png)
+
+Список фильмов отображается корректно — Helm-чарт работает идентично kubectl-развёртыванию.
+
 ## Удаляем все
 
 ```bash
