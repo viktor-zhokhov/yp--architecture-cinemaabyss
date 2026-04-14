@@ -56,10 +56,10 @@
 
 ```
 src/microservices/proxy/src/
-├── index.ts    — точка входа, bootstrap
-├── config.ts   — загрузка env-переменных
-├── routes.ts   — маршрутизация + Strangler Fig
-└── types.ts    — интерфейсы
+├── index.ts    - точка входа, bootstrap
+├── config.ts   - загрузка env-переменных
+├── routes.ts   - маршрутизация + Strangler Fig
+└── types.ts    - интерфейсы
 ```
 
 **Маршрутизация:**
@@ -67,13 +67,13 @@ src/microservices/proxy/src/
 | Путь | Куда уходит |
 |---|---|
 | `GET /health` | отвечает сам прокси |
-| `/api/movies*` | **Strangler Fig** — с вероятностью `MOVIES_MIGRATION_PERCENT%` в `movies-service`, иначе в монолит |
+| `/api/movies*` | **Strangler Fig** - с вероятностью `MOVIES_MIGRATION_PERCENT%` в `movies-service`, иначе в монолит |
 | `/api/events/*` | `events-service` |
 | `/api/users`, `/api/payments`, `/api/subscriptions` | монолит |
 
-При `MOVIES_MIGRATION_PERCENT=100` трафик полностью уходит в новый сервис, при `0` — в монолит, любое промежуточное значение даёт постепенный переход.
+При `MOVIES_MIGRATION_PERCENT=100` трафик полностью уходит в новый сервис, при `0` - в монолит, любое промежуточное значение даёт постепенный переход.
 
-**Проверка через API Gateway** — `curl http://localhost:8000/api/movies`:
+**Проверка через API Gateway** - `curl http://localhost:8000/api/movies`:
 
 ```json
 [
@@ -134,11 +134,11 @@ MVP-сервис реализован на **TypeScript + Express + KafkaJS**. �
 
 ```
 src/microservices/events/src/
-├── index.ts    — точка входа, старт producer и consumers
-├── config.ts   — загрузка env (PORT, KAFKA_BROKERS)
-├── kafka.ts    — producer, publishEvent, запуск consumer'ов
-├── routes.ts   — REST-эндпоинты
-└── types.ts    — интерфейсы событий, константы топиков
+├── index.ts    - точка входа, старт producer и consumers
+├── config.ts   - загрузка env (PORT, KAFKA_BROKERS)
+├── kafka.ts    - producer, publishEvent, запуск consumer'ов
+├── routes.ts   - REST-эндпоинты
+└── types.ts    - интерфейсы событий, константы топиков
 ```
 
 **API:**
@@ -150,7 +150,7 @@ src/microservices/events/src/
 | `POST /api/events/payment` | `payment-events` |
 | `GET  /api/events/health` | health |
 
-**Producer + Consumer в одном сервисе:** при старте поднимается producer и три независимых consumer'а (каждый со своей группой `events-{type}-group`). При вызове API эндпоинт **публикует** событие в соответствующий топик, а consumer того же сервиса **читает** его и пишет в лог — этим проверяется сквозной цикл producer → Kafka → consumer.
+**Producer + Consumer в одном сервисе:** при старте поднимается producer и три независимых consumer'а (каждый со своей группой `events-{type}-group`). При вызове API эндпоинт **публикует** событие в соответствующий топик, а consumer того же сервиса **читает** его и пишет в лог - этим проверяется сквозной цикл producer → Kafka → consumer.
 
 **Формат ответа** (по спецификации):
 
@@ -178,7 +178,7 @@ src/microservices/events/src/
 
 ### Результаты postman-тестов (`npm run test:local`)
 
-22 запроса, 42 ассерта — 0 ошибок.
+22 запроса, 42 ассерта - 0 ошибок.
 
 ![Postman tests](./docs/screenshot-postman-tests.png)
 
@@ -186,7 +186,7 @@ src/microservices/events/src/
 
 Все три топика созданы и содержат сообщения: `movie-events`, `user-events`, `payment-events`.
 
-![Kafka UI — Topics](docs/screenshot-kafka-ui-topics.png)
+![Kafka UI - Topics](docs/screenshot-kafka-ui-topics.png)
 
 # Задание 3
 
@@ -242,12 +242,12 @@ jobs:
 
 В [`.github/workflows/docker-build-push.yml`](./.github/workflows/docker-build-push.yml) добавлены **4 новых шага** (по образцу monolith/movies): `Extract metadata` + `Build and push` для **events-service** и **proxy-service** с контекстами `./src/microservices/events` и `./src/microservices/proxy`.
 
-Так как minikube локально работает на **arm64** (Apple Silicon), а GitHub-раннер — **amd64**, образы собираются **multi-arch**. Для этого добавлен шаг `docker/setup-qemu-action@v3` и в каждый `build-push-action` — `platforms: linux/amd64,linux/arm64`.
+Так как minikube локально работает на **arm64** (Apple Silicon), а GitHub-раннер - **amd64**, образы собираются **multi-arch**. Для этого добавлен шаг `docker/setup-qemu-action@v3` и в каждый `build-push-action` - `platforms: linux/amd64,linux/arm64`.
 
-Workflow запускается вручную через `workflow_dispatch` (триггер на `main` не менялся — мы работаем в ветке `cinema`). Результат:
+Workflow запускается вручную через `workflow_dispatch` (триггер на `main` не менялся - мы работаем в ветке `cinema`). Результат:
 
 - 4 пакета в GHCR: `monolith`, `movies-service`, `events-service`, `proxy-service` (все multi-arch, public).
-- `api-tests.yml` остался без изменений — его поддержка proxy/events обеспечивается тем, что `docker-compose.yml` в задании 2 собирает эти сервисы из локального контекста.
+- `api-tests.yml` остался без изменений - его поддержка proxy/events обеспечивается тем, что `docker-compose.yml` в задании 2 собирает эти сервисы из локального контекста.
 
 
 ### Proxy в Kubernetes
@@ -430,10 +430,10 @@ cat .docker/config.json | base64
 
 **Заполненные манифесты:**
 
-- [`src/kubernetes/events-service.yaml`](./src/kubernetes/events-service.yaml) — `Deployment` (порт 8082, env `KAFKA_BROKERS` из configmap) + `Service` (ClusterIP, 8082).
-- [`src/kubernetes/proxy-service.yaml`](./src/kubernetes/proxy-service.yaml) — `Deployment` (порт 8000, envFrom configmap — `MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) + `Service` (ClusterIP, 80 → 8000).
-- [`src/kubernetes/ingress.yaml`](./src/kubernetes/ingress.yaml) — два path'а: `/api/events` → `events-service:8082` (чтобы тесты могли писать события напрямую) и `/` → `proxy-service:80` (весь остальной трафик идёт через прокси, Strangler Fig работает).
-- [`src/kubernetes/configmap.yaml`](./src/kubernetes/configmap.yaml) — добавлены `EVENTS_SERVICE_URL` и `KAFKA_BROKERS`.
+- [`src/kubernetes/events-service.yaml`](./src/kubernetes/events-service.yaml) - `Deployment` (порт 8082, env `KAFKA_BROKERS` из configmap) + `Service` (ClusterIP, 8082).
+- [`src/kubernetes/proxy-service.yaml`](./src/kubernetes/proxy-service.yaml) - `Deployment` (порт 8000, envFrom configmap - `MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) + `Service` (ClusterIP, 80 → 8000).
+- [`src/kubernetes/ingress.yaml`](./src/kubernetes/ingress.yaml) - два path'а: `/api/events` → `events-service:8082` (чтобы тесты могли писать события напрямую) и `/` → `proxy-service:80` (весь остальной трафик идёт через прокси, Strangler Fig работает).
+- [`src/kubernetes/configmap.yaml`](./src/kubernetes/configmap.yaml) - добавлены `EVENTS_SERVICE_URL` и `KAFKA_BROKERS`.
 
 **Развёртывание:**
 
@@ -474,9 +474,9 @@ proxy-service-xxxxxxxxxx-xxxxx    1/1     Running
 zookeeper-0                       1/1     Running
 ```
 
-**Postman-тесты** `npm run test:kubernetes` — **22 запроса, 42 ассерта, 0 ошибок** (хотя задание говорит что часть health-чеков упадёт — у нас всё зелёное, потому что ingress пропускает их через proxy-service, который их корректно маршрутизирует).
+**Postman-тесты** `npm run test:kubernetes` - **22 запроса, 42 ассерта, 0 ошибок** (хотя задание говорит что часть health-чеков упадёт - у нас всё зелёное, потому что ingress пропускает их через proxy-service, который их корректно маршрутизирует).
 
-![Postman tests — kubernetes env](./docs/screenshot-k8s-postman-tests.png)
+![Postman tests - kubernetes env](./docs/screenshot-k8s-postman-tests.png)
 
 #### Шаг 3
 Добавьте сюда скриншота вывода при вызове https://cinemaabyss.example.com/api/movies и  скриншот вывода event-service после вызова тестов.
@@ -485,7 +485,7 @@ zookeeper-0                       1/1     Running
 
 ![/api/movies через ingress](./docs/screenshot-k8s-api-movies.png)
 
-Полный JSON-ответ — [`docs/api-movies-k8s-response.json`](./docs/api-movies-k8s-response.json).
+Полный JSON-ответ - [`docs/api-movies-k8s-response.json`](./docs/api-movies-k8s-response.json).
 
 **Логи events-service после прогона тестов:**
 
@@ -572,12 +572,12 @@ https://cinemaabyss.example.com/api/movies
 
 #### Решение
 
-**1. `values.yaml`** — пути к образам обновлены на `ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/*` для всех 4 сервисов (monolith, movies, proxy, events). Значение `imagePullSecrets.dockerconfigjson` хранится в локальном override `values.local.yaml` (не в git, gitignored через `*.local.yaml`), передаётся при установке через `-f values.local.yaml`.
+**1. `values.yaml`** - пути к образам обновлены на `ghcr.io/viktor-zhokhov/yp--architecture-cinemaabyss/*` для всех 4 сервисов (monolith, movies, proxy, events). Значение `imagePullSecrets.dockerconfigjson` хранится в локальном override `values.local.yaml` (не в git, gitignored через `*.local.yaml`), передаётся при установке через `-f values.local.yaml`.
 
 **2. Шаблоны** [`templates/services/proxy-service.yaml`](./src/kubernetes/helm/templates/services/proxy-service.yaml) и [`templates/services/events-service.yaml`](./src/kubernetes/helm/templates/services/events-service.yaml) заполнены по образцу `monolith.yaml` / `movies-service.yaml`:
 
-- **proxy-service** — image из `{{ .Values.proxyService.image.* }}`, env-переменные для Strangler Fig (`MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) из values, health probe `/health`, Service 80 → 8000.
-- **events-service** — image из `{{ .Values.eventsService.image.* }}`, env `KAFKA_BROKERS`, envFrom configmap, health probe `/api/events/health`, Service 8082.
+- **proxy-service** - image из `{{ .Values.proxyService.image.* }}`, env-переменные для Strangler Fig (`MONOLITH_URL`, `MOVIES_SERVICE_URL`, `EVENTS_SERVICE_URL`, `GRADUAL_MIGRATION`, `MOVIES_MIGRATION_PERCENT`) из values, health probe `/health`, Service 80 → 8000.
+- **events-service** - image из `{{ .Values.eventsService.image.* }}`, env `KAFKA_BROKERS`, envFrom configmap, health probe `/api/events/health`, Service 8082.
 
 **3. Установка и проверка:**
 
@@ -606,7 +606,7 @@ helm install cinemaabyss ./src/kubernetes/helm \
 
 ![/api/movies через helm](./docs/screenshot-helm-api-movies.png)
 
-Список фильмов отображается корректно — Helm-чарт работает идентично kubectl-развёртыванию.
+Список фильмов отображается корректно - Helm-чарт работает идентично kubectl-развёртыванию.
 
 ## Удаляем все
 
